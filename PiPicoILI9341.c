@@ -18,15 +18,14 @@
 #define SCREEN_TOTAL_PIXELS SCREEN_WIDTH * SCREEN_HEIGHT
 #define BUFFER_SIZE SCREEN_TOTAL_PIXELS * 2
 
-#define RECT_SIZE 10   // default 30
-#define RECT_COUNT 50  // default 50
+#define RECT_SIZE 2   // default 30
+#define RECT_COUNT 1000  // default 50
+#define REPEAT 4
+#define USE_INTERLACE
 
 
 // display buffer of our screen size.
 uint8_t buffer[BUFFER_SIZE];
-uint8_t interlacePosition = 0;
-
-uint actualBaudrate = 0;
 
 struct Square
 {
@@ -36,59 +35,54 @@ struct Square
     int16_t h;
     int8_t xVelocity;
     int8_t yVelocity;
-    uint8_t color;
+    uint16_t color;
 };
 
-static inline void cs_select() {
-    gpio_put(PIN_CS, 0);
+static void backlight(bool on) {
+    gpio_put(PIN_LED, on);
 }
 
-static inline void cs_deselect() {
-    gpio_put(PIN_CS, 1);
+static void cs(bool select) {
+    gpio_put(PIN_CS, !select);  // note: selected is low!
 }
 
-static inline void dc_select() {
-    gpio_put(PIN_DC, 0);
-}
-
-static inline void dc_deselect() {
-    gpio_put(PIN_DC, 1);
+static void dc(bool select) {
+    gpio_put(PIN_DC, !select);  // note: selected is low!
 }
 
 static void inline send_short(uint16_t data)
 {
-    cs_select();
-
-    uint8_t shortBuffer[2];
-
-    shortBuffer[0] = (uint8_t) (data >> 8);
-    shortBuffer[1] = (uint8_t) data;
-
+    uint8_t shortBuffer[] = {data >> 8, data};
+    cs(true);
     spi_write_blocking(SPI_PORT, shortBuffer, 2);
-
-    cs_deselect();
+    cs(false);
 }
 
 static void inline send_command_data(const char command, const size_t len, const char *data) {
-    cs_select();
-    dc_select();
+    cs(true);
+    dc(true);
     spi_write_blocking(SPI_PORT, &command, 1);
-    dc_deselect();
+    dc(false);
     spi_write_blocking(SPI_PORT, data, len);
-    cs_deselect();
+    cs(false);
+}
+
+static void inline send_command_param(const char command, const char param) {
+    cs(true);
+    dc(true);
+    spi_write_blocking(SPI_PORT, &command, 1);
+    dc(false);
+    spi_write_blocking(SPI_PORT, &param, 1);
+    cs(false);
 }
 
 static void inline send_command(uint8_t command)
 {
-    cs_select();
-    dc_select();
+    cs(true);
+    dc(true);
     spi_write_blocking(SPI_PORT, &command, 1);
-    dc_deselect();
-    cs_deselect();
-}
-
-static void backlight(bool on) {
-    gpio_put(PIN_LED, on);
+    dc(false);
+    cs(false);
 }
 
 void init_display() 
@@ -96,9 +90,7 @@ void init_display()
     // [mee]
     gpio_init(PIN_LED);
     gpio_set_dir(PIN_LED, GPIO_OUT);
-    gpio_put(PIN_LED, 0);
-
-    // cs_select();
+    backlight(false);
 
     gpio_put(PIN_RST, 0);
     sleep_ms(50);
@@ -109,19 +101,19 @@ void init_display()
     send_command_data(POSC,     4, (const char[]){0x64, 0x03, 0x12, 0x81});
     send_command_data(DTCA,     3, (const char[]){0x85, 0x00, 0x78});
     send_command_data(PWCTRA,   5, (const char[]){0x39, 0x2c, 0x00, 0x32, 0x02});
-    send_command_data(PUMPRC,   1, (const char[]){0x20});
+    send_command_param(PUMPRC, 0x20);
     send_command_data(DTCB,     2, (const char[]){0x00, 0x00});
-    send_command_data(PWCTR1,   1, (const char[]){0x23});
-    send_command_data(PWCTR2,   1, (const char[]){0x10});
+    send_command_param(PWCTR1, 0x23);
+    send_command_param(PWCTR2, 0x10);
     send_command_data(VMCTR1,   2, (const char[]){0x3e, 0x28});
-    send_command_data(VMCTR2,   1, (const char[]){0x86});
-    send_command_data(RDMADCTL, 1, (const char[]){0x48});
-    send_command_data(PIXFMT,   1, (const char []){0x55});
+    send_command_param(VMCTR2, 0x86);
+    send_command_param(RDMADCTL, 0x48);
+    send_command_param(PIXFMT, 0x55);
     send_command_data(FRMCTR1,  2, (const char[]){0x00, 0x1f});  // 61 Hz
     // send_command_data(FRMCTR1,  2, (const char[]){0x00, 0x0a});  // 119 Hz
     send_command_data(DFUNCTR,  3, (const char[]){0x08, 0x82, 0x27});
-    send_command_data(ENABLE3G, 1, (const char[]){0x00});
-    send_command_data(GAMMASET, 1, (const char[]){0x01});
+    send_command_param(ENABLE3G, 0x00);
+    send_command_param(GAMMASET, 0x01);
     send_command_data(GMCTRP1, 15, (const char[]){0x0f, 0x31, 0x2b, 0x0c, 0x0e, 0x08, 0x4e, 0xf1, 0x37, 0x07, 0x10, 0x03, 0x0e, 0x09, 0x00});
     send_command_data(GMCTRN1, 15, (const char[]){0x00, 0x0e, 0x14, 0x03, 0x11, 0x07, 0x31, 0xc1, 0x48, 0x08, 0x0f, 0x0c, 0x31, 0x36, 0x0f});
     send_command(SLPOUT);
@@ -134,10 +126,9 @@ void init_display()
 void init_SPI()
 {
     // set up the SPI interface.
-    spi_init(SPI_PORT, 62500000);
-    // actualBaudrate = spi_set_baudrate(SPI_PORT, 70000000);
+    uint actualBaudrate = spi_init(SPI_PORT, 100000000);  //62,500,000
+    // printf("Actual Baudrate: %i\n", actualBaudrate);  //62,500,000
 
-    // printf("Actual Baudrate: %i\n", actualBaudrate);
     gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
     gpio_set_function(PIN_SCK,  GPIO_FUNC_SPI);
     gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
@@ -149,9 +140,6 @@ void init_SPI()
     gpio_set_dir(PIN_CS, GPIO_OUT);
     gpio_set_dir(PIN_DC, GPIO_OUT);
     gpio_set_dir(PIN_RST, GPIO_OUT);
-    gpio_put(PIN_CS, 1);
-    gpio_put(PIN_DC, 0);
-    gpio_put(PIN_RST, 0);
 }
 
 void init_drawing()
@@ -169,11 +157,9 @@ void init_drawing()
 
 static inline void write_buffer()
 {
-    send_command_data(WRITE_RAM, BUFFER_SIZE, buffer);
-}
+    #ifdef USE_INTERLACE
+    static uint8_t interlacePosition = 0;
 
-static inline void write_buffer_interlaced()
-{
     send_command(SET_COLUMN);
     send_short(0);
     send_short(239);
@@ -186,8 +172,10 @@ static inline void write_buffer_interlaced()
 
         send_command_data(WRITE_RAM, SCREEN_WIDTH * 2, &buffer[i * SCREEN_WIDTH * 2]);
     }
-
     interlacePosition ^= 1;
+    #else
+    send_command_data(WRITE_RAM, BUFFER_SIZE, buffer);
+    #endif
 }
 
 inline void clear_buffer()
@@ -199,7 +187,7 @@ inline void clear_buffer()
 }
 
 void inline draw_rectangle(uint16_t x, uint16_t y, uint16_t w,
-    uint16_t h, uint8_t color)
+    uint16_t h, uint16_t color)
 {
     for (int i = y * SCREEN_WIDTH * 2;
         i < (SCREEN_WIDTH * y * 2) + (h * SCREEN_WIDTH * 2);
@@ -207,8 +195,8 @@ void inline draw_rectangle(uint16_t x, uint16_t y, uint16_t w,
     {
         for (int j = x * 2; j < (x * 2) + (w * 2); j+=2)
         {
-            buffer[i+j] = color;
-            buffer[i+j+1] = color;
+            buffer[i+j] = color >> 8;
+            buffer[i+j+1] = color & 0xff;
         }
     }    
 }
@@ -267,11 +255,11 @@ int main()
 
     printf("Drawing initialized.\n");
 
-    uint playerCount = RECT_COUNT;
+    // uint playerCount = RECT_COUNT;
 
-    struct Square player[playerCount];
+    struct Square player[RECT_COUNT];
 
-    for (int i = 0; i < playerCount; i++)
+    for (int i = 0; i < RECT_COUNT; i++)
     {
         player[i].x = rand() % (SCREEN_WIDTH - 1) - RECT_SIZE;
         player[i].y = rand() % (SCREEN_HEIGHT - 1) - RECT_SIZE;
@@ -285,33 +273,47 @@ int main()
             player[i].xVelocity = 3;
             player[i].yVelocity = 3;
         }
+        uint16_t red = rand() & 0xf800;
+        uint16_t green = rand() & 0xfc00;
+        uint16_t blue = rand() & 0xf800;
 
-        player[i].color = rand() % 255;
+        player[i].color = red | (green >> 5) | (blue >> 11);
     } 
 
-    backlight(true);  
+    backlight(true); 
+    int visible = 0;
+    int delta = 1;
+    int repeat = REPEAT;
 
+    
     while(1)
     {        
-        update(player, playerCount);
+        update(player, RECT_COUNT);
 
         clear_buffer();
 
-        for (int i = 0; i < playerCount; i++)
+        for (int i = 0; i < visible; i++)
         {
             draw_rectangle(player[i].x, player[i].y,
                 player[i].w, player[i].h, player[i].color);
         }
+        repeat--;
+        if (!repeat) {
+            visible += delta;
+            if (visible < 1) {
+                delta = 1;
+            }
+            if (visible > RECT_COUNT - 1) {
+                delta = -1;
+            }
+            repeat = REPEAT;
+        }
 
-        uint32_t beforeWriteTime = time_us_32();
+
+        // uint32_t beforeWriteTime = time_us_32();
         write_buffer();
-        // write_buffer_interlaced();
-        // write_buffer_interlaced();
-        uint32_t afterWriteTime = time_us_32();
-        printf("\n%ldus\n", afterWriteTime-beforeWriteTime);
-        //printf("Actual Buadrate: %i\n", actualBaudrate);
+        // uint32_t afterWriteTime = time_us_32();
+        // printf("\n%ldus\n", afterWriteTime-beforeWriteTime);
     }
-
-
     return 0;
 }
