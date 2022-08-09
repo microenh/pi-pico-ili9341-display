@@ -18,63 +18,9 @@
 #define SCREEN_TOTAL_PIXELS SCREEN_WIDTH * SCREEN_HEIGHT
 #define BUFFER_SIZE SCREEN_TOTAL_PIXELS * 2
 
-/*
-const uint8_t NOP = 0x00;
-const uint8_t SWRESET = 0x01;
-const uint8_t RDDID = 0x04;
-const uint8_t RDDST = 0x09;
-const uint8_t SLPIN = 0x10;
-const uint8_t SLPOUT = 0x11;
-const uint8_t PTLON = 0x12;
-const uint8_t NORON = 0x13;
-const uint8_t RDMODE = 0x0a;
-const uint8_t RDMADCTL = 0x0b;
-const uint8_t RDPIXFMT = 0x0c;
-const uint8_t RDIMGFMT = 0x0d;
-const uint8_t RDSELFDIAG = 0x0f;
-const uint8_t INVOFF = 0x20;
-const uint8_t INVON = 0x21;
-const uint8_t GAMMASET = 0x26;
-const uint8_t DISPLAY_OFF = 0x28;
-const uint8_t DISPLAY_ON = 0x29;
-const uint8_t SET_COLUMN = 0x2a;
-const uint8_t SET_PAGE = 0x2b;
-const uint8_t WRITE_RAM = 0x2c;
-const uint8_t READ_RAM = 0x2e;
-const uint8_t PTLAR = 0x30;
-const uint8_t VSCRDEF = 0x33;
-const uint8_t PIXMFT = 0x3a;
-const uint8_t WRITE_DISPLAY_BRIGHTNESS = 0x51;
-const uint8_t READ_DISPLAY_BRIGHTNESS = 0x52;
-const uint8_t WRITE_CTRL_DISPLAY = 0x53;
-const uint8_t READ_CTRL_DISPLAY = 0x54;
-const uint8_t WRITE_CABC = 0x55;
-const uint8_t READ_CABC = 0x56;
-const uint8_t WRITE_CABC_MINIMUM = 0x5e;
-const uint8_t READ_CABC_MINIMUM = 0x5f;
-const uint8_t FRMCTR1 = 0x81;
-const uint8_t FRMCTR2 = 0x82;
-const uint8_t FRMCTR3 = 0x83;
-const uint8_t INVCTR = 0x84;
-const uint8_t DFUNCTR = 0xb6;
-const uint8_t PWCTR1 = 0xc0;
-const uint8_t PWCTR2 = 0xc1;
-const uint8_t PWCTRA = 0xcb;
-const uint8_t PWCTRB = 0xcf;
-const uint8_t VMCTR1 = 0xc5;
-const uint8_t VMCTR2 = 0xc7;
-const uint8_t RDID1 = 0xda;
-const uint8_t RDID2 = 0xdb;
-const uint8_t RDID3 = 0xdc;
-const uint8_t RDID4 = 0xdd;
-const uint8_t GMCTRP1 = 0xe0;
-const uint8_t GMCTRN1 = 0xe1;
-const uint8_t DTCA = 0xe8;
-const uint8_t DTCB = 0xea;
-const uint8_t POSC = 0xed;
-const uint8_t ENABLE3G = 0xf2;
-const uint8_t PUMPRC = 0xf7; 
-*/
+#define RECT_SIZE 10   // default 30
+#define RECT_COUNT 50  // default 50
+
 
 // display buffer of our screen size.
 uint8_t buffer[BUFFER_SIZE];
@@ -112,7 +58,6 @@ static inline void dc_deselect() {
 static void inline send_short(uint16_t data)
 {
     cs_select();
-    dc_deselect();
 
     uint8_t shortBuffer[2];
 
@@ -129,15 +74,17 @@ static void inline send_command_data(const char command, const size_t len, const
     dc_select();
     spi_write_blocking(SPI_PORT, &command, 1);
     dc_deselect();
-    if (len) {
-        spi_write_blocking(SPI_PORT, data, len);
-    }
+    spi_write_blocking(SPI_PORT, data, len);
     cs_deselect();
 }
 
 static void inline send_command(uint8_t command)
 {
-    send_command_data(command, 0, (const char[]){});
+    cs_select();
+    dc_select();
+    spi_write_blocking(SPI_PORT, &command, 1);
+    dc_deselect();
+    cs_deselect();
 }
 
 static void backlight(bool on) {
@@ -151,7 +98,7 @@ void init_display()
     gpio_set_dir(PIN_LED, GPIO_OUT);
     gpio_put(PIN_LED, 0);
 
-    cs_select();
+    // cs_select();
 
     gpio_put(PIN_RST, 0);
     sleep_ms(50);
@@ -171,7 +118,7 @@ void init_display()
     send_command_data(RDMADCTL, 1, (const char[]){0x48});
     send_command_data(PIXFMT,   1, (const char []){0x55});
     send_command_data(FRMCTR1,  2, (const char[]){0x00, 0x1f});  // 61 Hz
-    // send_command_data1(FRMCTR1,  2, (const char[]){0x00, 0x0a});  // 119 Hz
+    // send_command_data(FRMCTR1,  2, (const char[]){0x00, 0x0a});  // 119 Hz
     send_command_data(DFUNCTR,  3, (const char[]){0x08, 0x82, 0x27});
     send_command_data(ENABLE3G, 1, (const char[]){0x00});
     send_command_data(GAMMASET, 1, (const char[]){0x01});
@@ -211,26 +158,21 @@ void init_drawing()
 {
     send_command(SET_COLUMN);
     send_short(0);
-    send_short(239);
+    send_short(SCREEN_WIDTH - 1);
 
     send_command(SET_PAGE);
     send_short(0);
-    send_short(319);
+    send_short(SCREEN_HEIGHT - 1);
 
     sleep_ms(10);
-
-    send_command(WRITE_RAM);
-
-    cs_select();
-    dc_deselect();
 }
 
-inline void write_buffer()
+static inline void write_buffer()
 {
-    spi_write_blocking(SPI_PORT, buffer, BUFFER_SIZE);
+    send_command_data(WRITE_RAM, BUFFER_SIZE, buffer);
 }
 
-void write_buffer_interlaced()
+static inline void write_buffer_interlaced()
 {
     send_command(SET_COLUMN);
     send_short(0);
@@ -242,23 +184,10 @@ void write_buffer_interlaced()
         send_short(i);
         send_short(i+1);
 
-        send_command(WRITE_RAM);
-
-        cs_select();
-        dc_deselect();
-
-        spi_write_blocking(SPI_PORT, &buffer[i * SCREEN_WIDTH * 2],
-            SCREEN_WIDTH * 2);
+        send_command_data(WRITE_RAM, SCREEN_WIDTH * 2, &buffer[i * SCREEN_WIDTH * 2]);
     }
 
-    if (interlacePosition == 1) 
-    {
-        interlacePosition = 0;
-    } 
-    else 
-    {
-        interlacePosition = 1;
-    }
+    interlacePosition ^= 1;
 }
 
 inline void clear_buffer()
@@ -338,16 +267,16 @@ int main()
 
     printf("Drawing initialized.\n");
 
-    uint playerCount = 10;
+    uint playerCount = RECT_COUNT;
 
     struct Square player[playerCount];
 
     for (int i = 0; i < playerCount; i++)
     {
-        player[i].x = rand() % 209;
-        player[i].y = rand() % 289;
-        player[i].w = 30;
-        player[i].h = 30;
+        player[i].x = rand() % (SCREEN_WIDTH - 1) - RECT_SIZE;
+        player[i].y = rand() % (SCREEN_HEIGHT - 1) - RECT_SIZE;
+        player[i].w = RECT_SIZE;
+        player[i].h = RECT_SIZE;
         player[i].xVelocity = rand() % 4 - 2;
         player[i].yVelocity = rand() % 4 - 2;
 
@@ -375,9 +304,9 @@ int main()
         }
 
         uint32_t beforeWriteTime = time_us_32();
-        // write_buffer();
-        write_buffer_interlaced();
-        write_buffer_interlaced();
+        write_buffer();
+        // write_buffer_interlaced();
+        // write_buffer_interlaced();
         uint32_t afterWriteTime = time_us_32();
         printf("\n%ldus\n", afterWriteTime-beforeWriteTime);
         //printf("Actual Buadrate: %i\n", actualBaudrate);
