@@ -99,4 +99,10 @@ C(POSCTRL, 0xed);
 C(ENABLE_3G, 0xf2);
 C(PUMPRATIOCTRL, 0xf7);
 
+// Rotation (MADCTL)
+C(R000, 0x88);
+C(R090, 0xe8);
+C(R180, 0x48);
+C(R270, 0x28);
+
 #undef C

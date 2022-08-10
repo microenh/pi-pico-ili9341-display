@@ -20,7 +20,7 @@ pico_sdk_init()
 # Add executable. Default name is the project name, version 0.1
 
 add_executable(PiPicoILI9341
-        PiPicoILI9341.c
+        PiPicoILI9341.cpp
         commands.c)
 
 pico_set_program_name(PiPicoILI9341 "PiPicoILI9341")
