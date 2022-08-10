@@ -309,7 +309,6 @@ int main()
             repeat = REPEAT;
         }
 
-
         // uint32_t beforeWriteTime = time_us_32();
         write_buffer();
         // uint32_t afterWriteTime = time_us_32();
