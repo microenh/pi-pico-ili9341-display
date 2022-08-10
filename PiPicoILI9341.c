@@ -18,10 +18,10 @@
 #define SCREEN_TOTAL_PIXELS SCREEN_WIDTH * SCREEN_HEIGHT
 #define BUFFER_SIZE SCREEN_TOTAL_PIXELS * 2
 
-#define RECT_SIZE 2   // default 30
-#define RECT_COUNT 1000  // default 50
-#define REPEAT 4
-#define USE_INTERLACE
+#define RECT_SIZE 30   // default 30
+#define RECT_COUNT 50  // default 50
+#define REPEAT 5
+// #define USE_INTERLACE
 
 
 // display buffer of our screen size.
@@ -85,40 +85,44 @@ static void inline send_command(uint8_t command)
     cs(false);
 }
 
-void init_display() 
+void init_backlight() 
 {
     // [mee]
     gpio_init(PIN_LED);
     gpio_set_dir(PIN_LED, GPIO_OUT);
     backlight(false);
+}
 
+void init_display()
+{
     gpio_put(PIN_RST, 0);
     sleep_ms(50);
     gpio_put(PIN_RST, 1);
     sleep_ms(50);
 
-    send_command_data(PWCTRB,   3, (const char[]){0x00, 0xc1, 0x30});
-    send_command_data(POSC,     4, (const char[]){0x64, 0x03, 0x12, 0x81});
-    send_command_data(DTCA,     3, (const char[]){0x85, 0x00, 0x78});
-    send_command_data(PWCTRA,   5, (const char[]){0x39, 0x2c, 0x00, 0x32, 0x02});
-    send_command_param(PUMPRC, 0x20);
-    send_command_data(DTCB,     2, (const char[]){0x00, 0x00});
-    send_command_param(PWCTR1, 0x23);
-    send_command_param(PWCTR2, 0x10);
-    send_command_data(VMCTR1,   2, (const char[]){0x3e, 0x28});
-    send_command_param(VMCTR2, 0x86);
-    send_command_param(RDMADCTL, 0x48);
-    send_command_param(PIXFMT, 0x55);
-    send_command_data(FRMCTR1,  2, (const char[]){0x00, 0x1f});  // 61 Hz
+    send_command(SWRESET);
+    send_command_data(PWCTRLB, 3, (const char[]){0x00, 0xc1, 0x30});
+    send_command_data(POSCTRL, 4, (const char[]){0x64, 0x03, 0x12, 0x81});
+    send_command_data(DTIMCTRLA, 3, (const char[]){0x85, 0x00, 0x78});
+    send_command_data(PWCTRLA, 5, (const char[]){0x39, 0x2c, 0x00, 0x32, 0x02});
+    send_command_param(PUMPRATIOCTRL, 0x20);
+    send_command_data(DTIMCTRLB, 2, (const char[]){0x00, 0x00});
+    send_command_param(PWCTRL1, 0x23);
+    send_command_param(PWCTRL2, 0x10);
+    send_command_data(VMCTRL1, 2, (const char[]){0x3e, 0x28});
+    send_command_param(VMCTRL2, 0x86);
+    send_command_param(MADCTL, 0x48);
+    send_command_param(PIXSET, 0x55);
+    send_command_data(FRMCTR1, 2, (const char[]){0x00, 0x1f});  // 61 Hz
     // send_command_data(FRMCTR1,  2, (const char[]){0x00, 0x0a});  // 119 Hz
-    send_command_data(DFUNCTR,  3, (const char[]){0x08, 0x82, 0x27});
-    send_command_param(ENABLE3G, 0x00);
-    send_command_param(GAMMASET, 0x01);
-    send_command_data(GMCTRP1, 15, (const char[]){0x0f, 0x31, 0x2b, 0x0c, 0x0e, 0x08, 0x4e, 0xf1, 0x37, 0x07, 0x10, 0x03, 0x0e, 0x09, 0x00});
-    send_command_data(GMCTRN1, 15, (const char[]){0x00, 0x0e, 0x14, 0x03, 0x11, 0x07, 0x31, 0xc1, 0x48, 0x08, 0x0f, 0x0c, 0x31, 0x36, 0x0f});
+    send_command_data(DISCTRL, 3, (const char[]){0x08, 0x82, 0x27});
+    send_command_param(ENABLE_3G, 0x00);
+    send_command_param(GAMSET, 0x01);
+    send_command_data(PGAMCTRL, 15, (const char[]){0x0f, 0x31, 0x2b, 0x0c, 0x0e, 0x08, 0x4e, 0xf1, 0x37, 0x07, 0x10, 0x03, 0x0e, 0x09, 0x00});
+    send_command_data(NGAMCTRL, 15, (const char[]){0x00, 0x0e, 0x14, 0x03, 0x11, 0x07, 0x31, 0xc1, 0x48, 0x08, 0x0f, 0x0c, 0x31, 0x36, 0x0f});
     send_command(SLPOUT);
     sleep_ms(120);
-    send_command(DISPLAY_ON);
+    send_command(DISPON);
     sleep_ms(120);
     send_command(NORON);
 }
@@ -144,11 +148,11 @@ void init_SPI()
 
 void init_drawing()
 {
-    send_command(SET_COLUMN);
+    send_command(CASET);
     send_short(0);
     send_short(SCREEN_WIDTH - 1);
 
-    send_command(SET_PAGE);
+    send_command(PASET);
     send_short(0);
     send_short(SCREEN_HEIGHT - 1);
 
@@ -160,21 +164,21 @@ static inline void write_buffer()
     #ifdef USE_INTERLACE
     static uint8_t interlacePosition = 0;
 
-    send_command(SET_COLUMN);
+    send_command(CASET);
     send_short(0);
     send_short(239);
 
     for (int i = interlacePosition; i < SCREEN_HEIGHT; i+=2)
     {
-        send_command(SET_PAGE);
+        send_command(PASET);
         send_short(i);
         send_short(i+1);
 
-        send_command_data(WRITE_RAM, SCREEN_WIDTH * 2, &buffer[i * SCREEN_WIDTH * 2]);
+        send_command_data(RAMWR, SCREEN_WIDTH * 2, &buffer[i * SCREEN_WIDTH * 2]);
     }
     interlacePosition ^= 1;
     #else
-    send_command_data(WRITE_RAM, BUFFER_SIZE, buffer);
+    send_command_data(RAMWR, BUFFER_SIZE, buffer);
     #endif
 }
 
@@ -239,6 +243,7 @@ void update(struct Square player[], uint playerCount)
 
 int main()
 {
+
     stdio_init_all();
 
     printf("Starting up.\n");
@@ -247,6 +252,7 @@ int main()
 
     printf("SPI initialized.\n");
 
+    init_backlight();
     init_display();
 
     printf("Display initialized.\n");
@@ -280,14 +286,21 @@ int main()
         player[i].color = red | (green >> 5) | (blue >> 11);
     } 
 
-    backlight(true); 
     int visible = 0;
     int delta = 1;
     int repeat = REPEAT;
 
-    
+    clear_buffer();
+    write_buffer();
+    #ifdef USE_INTERLACE
+    write_buffer();
+    write_buffer();
+    #endif
+    backlight(true); 
+    sleep_ms(1000);
+
     while(1)
-    {        
+    {      
         update(player, RECT_COUNT);
 
         clear_buffer();
@@ -299,7 +312,7 @@ int main()
         }
         repeat--;
         if (!repeat) {
-            visible += delta;
+             visible += delta;
             if (visible < 1) {
                 delta = 1;
             }
