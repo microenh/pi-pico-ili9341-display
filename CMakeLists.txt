@@ -21,6 +21,7 @@ pico_sdk_init()
 
 add_executable(PiPicoILI9341
         PiPicoILI9341.cpp
+        display.cpp
         commands.c)
 
 pico_set_program_name(PiPicoILI9341 "PiPicoILI9341")
