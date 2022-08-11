@@ -23,13 +23,13 @@ class display {
 
         void cs(bool select);
         void dc(bool select);
-        void send_command(uint8_t command);
-        void send_command(const uint8_t command, const uint8_t param);
-        void send_command(const uint8_t command, const size_t len, const uint8_t *data);
-        void send_short(const uint16_t data);
-        void init_display();
-        void init_SPI();
-        void init_drawing();
+        void sendCommand(uint8_t command);
+        void sendCommand(const uint8_t command, const uint8_t param);
+        void sendCommand(const uint8_t command, const size_t len, const uint8_t *data);
+        void sendShort(const uint16_t data);
+        void initDisplay();
+        void initSPI();
+        void initDrawing();
 
     public:
         display(
@@ -47,10 +47,11 @@ class display {
         );
         ~display();
         void backlight(bool on);
-        void write_buffer();
-        void clear_buffer();
-        void draw_rectangle(uint16_t x, uint16_t y, uint16_t w,
-                                uint16_t h, uint16_t color);       
+        void writeBuffer();
+        void clearBuffer();
+        void drawRectangleToBuffer(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color);
+        void clearScreen(uint16_t color);
+
 
 
 };

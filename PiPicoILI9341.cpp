@@ -98,8 +98,8 @@ int main()
     int delta = 1;
     int repeat = REPEAT;
 
-    disp.clear_buffer();
-    disp.write_buffer();
+    disp.clearBuffer();
+    disp.writeBuffer();
 #ifdef USE_INTERLACE
     disp.write_buffer();
     disp.write_buffer();
@@ -107,15 +107,60 @@ int main()
     disp.backlight(true);
     sleep_ms(1000);
 
-    while (1)
+    uint16_t red = 0;
+    uint16_t green = 0;
+    uint16_t blue = 0;
+    int rDelta = 1;
+    int gDelta = 1;
+    int bDelta = 1;
+    while (1) {
+        switch (rand() % 4) {
+            case 0:
+                red += rDelta;
+                if (!red) {
+                    rDelta = 1;
+                } else if (red == 0x1f) {
+                    rDelta = -1;
+                }
+                break;
+            case 1:
+            case 3:
+                green += gDelta;
+                if (!green) {
+                    gDelta = 1;
+                } else if (green == 0x3f) {
+                    gDelta = -1;
+                }
+                break;
+            case 2:
+                blue += bDelta;
+                if (!blue) {
+                    bDelta = 1;
+                } else if (blue == 0x1f) {
+                    bDelta = -1;
+                }
+                break;
+        }
+        disp.clearScreen((red << 11) | (green << 5) | (blue));
+    }
+
+    for (uint16_t red = 0; red < 0x20; red++) {
+        for (uint16_t green = 0; green < 0x40; green++) {
+            for (uint16_t blue = 0; blue < 0x20; blue++) {
+                disp.clearScreen((red << 11) | (green << 5) | (blue));
+            }
+        }
+    }
+
+     while (1)
     {
         update(player, RECT_COUNT);
 
-        disp.clear_buffer();
+        disp.clearBuffer();
 
         for (int i = 0; i < visible; i++)
         {
-            disp.draw_rectangle(player[i].x, player[i].y,
+            disp.drawRectangleToBuffer(player[i].x, player[i].y,
                            player[i].w, player[i].h, player[i].color);
         }
         repeat--;
@@ -134,7 +179,7 @@ int main()
         }
 
         // uint32_t beforeWriteTime = time_us_32();
-        disp.write_buffer();
+        disp.writeBuffer();
         // uint32_t afterWriteTime = time_us_32();
         // printf("\n%ldus\n", afterWriteTime-beforeWriteTime);
     }

@@ -32,9 +32,9 @@ display::display(
     buffer_size = screen_height * screen_width * 2;
     buffer = new uint8_t[buffer_size];
 
-    init_SPI();
-    init_display();
-    init_drawing();
+    initSPI();
+    initDisplay();
+    initDrawing();
 }
 
 display::~display() {
@@ -54,7 +54,7 @@ void display::dc(bool select) {
     gpio_put(pin_dc, !select);
 }
 
-void display::send_command(uint8_t command)
+void display::sendCommand(uint8_t command)
 {
     cs(true);
     dc(true);
@@ -63,7 +63,7 @@ void display::send_command(uint8_t command)
     cs(false);
 }
 
-void display::send_command(const uint8_t command, const uint8_t param)
+void display::sendCommand(const uint8_t command, const uint8_t param)
 {
     cs(true);
     dc(true);
@@ -73,7 +73,7 @@ void display::send_command(const uint8_t command, const uint8_t param)
     cs(false);
 }
 
-void display::send_command(const uint8_t command, const size_t len, const uint8_t *data)
+void display::sendCommand(const uint8_t command, const size_t len, const uint8_t *data)
 {
     cs(true);
     dc(true);
@@ -83,7 +83,7 @@ void display::send_command(const uint8_t command, const size_t len, const uint8_
     cs(false);
 }
 
-void display::send_short(uint16_t data)
+void display::sendShort(uint16_t data)
 {
     uint8_t shortBuffer[] = {(uint8_t)(data >> 8), (uint8_t)data};
     cs(true);
@@ -91,7 +91,7 @@ void display::send_short(uint16_t data)
     cs(false);
 }
 
-void display::init_display()
+void display::initDisplay()
 {
     // [mee]
     gpio_init(pin_led);
@@ -103,35 +103,35 @@ void display::init_display()
     gpio_put(pin_rst, 1);
     sleep_ms(50);
 
-    send_command(SWRESET);
-    send_command(PWCTRLB, 3, (const uint8_t[]){0x00, 0xc1, 0x30});
-    send_command(POSCTRL, 4, (const uint8_t[]){0x64, 0x03, 0x12, 0x81});
-    send_command(DTIMCTRLA, 3, (const uint8_t[]){0x85, 0x00, 0x78});
-    send_command(PWCTRLA, 5, (const uint8_t[]){0x39, 0x2c, 0x00, 0x32, 0x02});
-    send_command(PUMPRATIOCTRL, 0x20);
-    send_command(DTIMCTRLB, 2, (const uint8_t[]){0x00, 0x00});
-    send_command(PWCTRL1, 0x23);
-    send_command(PWCTRL2, 0x10);
-    send_command(VMCTRL1, 2, (const uint8_t[]){0x3e, 0x28});
-    send_command(VMCTRL2, 0x86);
-    send_command(MADCTL, rotation); // 0x48 (R180)
-    send_command(PIXSET, 0x55);     // 16-bits / pixel
+    sendCommand(SWRESET);
+    sendCommand(PWCTRLB, 3, (const uint8_t[]){0x00, 0xc1, 0x30});
+    sendCommand(POSCTRL, 4, (const uint8_t[]){0x64, 0x03, 0x12, 0x81});
+    sendCommand(DTIMCTRLA, 3, (const uint8_t[]){0x85, 0x00, 0x78});
+    sendCommand(PWCTRLA, 5, (const uint8_t[]){0x39, 0x2c, 0x00, 0x32, 0x02});
+    sendCommand(PUMPRATIOCTRL, 0x20);
+    sendCommand(DTIMCTRLB, 2, (const uint8_t[]){0x00, 0x00});
+    sendCommand(PWCTRL1, 0x23);
+    sendCommand(PWCTRL2, 0x10);
+    sendCommand(VMCTRL1, 2, (const uint8_t[]){0x3e, 0x28});
+    sendCommand(VMCTRL2, 0x86);
+    sendCommand(MADCTL, rotation); // 0x48 (R180)
+    sendCommand(PIXSET, 0x55);     // 16-bits / pixel
     // send_command(FRMCTR1, 2, (const uint8_t[]){0x00, 0x1f});  // 61 Hz
     // send_command(FRMCTR1, 2, (const uint8_t[]){0x00, 0x10});  // 119 Hz (per docs)
     // send_command(FRMCTR1, 2, (const uint8_t[]){0x00, 0x0a});  // 119 Hz
-    send_command(DISCTRL, 3, (const uint8_t[]){0x08, 0x82, 0x27});
-    send_command(ENABLE_3G, 0x00);
-    send_command(GAMSET, 0x01);
-    send_command(PGAMCTRL, 15, (const uint8_t[]){0x0f, 0x31, 0x2b, 0x0c, 0x0e, 0x08, 0x4e, 0xf1, 0x37, 0x07, 0x10, 0x03, 0x0e, 0x09, 0x00});
-    send_command(NGAMCTRL, 15, (const uint8_t[]){0x00, 0x0e, 0x14, 0x03, 0x11, 0x07, 0x31, 0xc1, 0x48, 0x08, 0x0f, 0x0c, 0x31, 0x36, 0x0f});
-    send_command(SLPOUT);
+    sendCommand(DISCTRL, 3, (const uint8_t[]){0x08, 0x82, 0x27});
+    sendCommand(ENABLE_3G, 0x00);
+    sendCommand(GAMSET, 0x01);
+    sendCommand(PGAMCTRL, 15, (const uint8_t[]){0x0f, 0x31, 0x2b, 0x0c, 0x0e, 0x08, 0x4e, 0xf1, 0x37, 0x07, 0x10, 0x03, 0x0e, 0x09, 0x00});
+    sendCommand(NGAMCTRL, 15, (const uint8_t[]){0x00, 0x0e, 0x14, 0x03, 0x11, 0x07, 0x31, 0xc1, 0x48, 0x08, 0x0f, 0x0c, 0x31, 0x36, 0x0f});
+    sendCommand(SLPOUT);
     sleep_ms(120);
-    send_command(DISPON);
+    sendCommand(DISPON);
     // sleep_ms(120);
-    send_command(NORON);
+    sendCommand(NORON);
 }
 
-void display::init_SPI()
+void display::initSPI()
 {
     // set up the SPI interface.
     uint actualBaudrate = spi_init(spi, 100000000); // 62,500,000
@@ -150,20 +150,20 @@ void display::init_SPI()
     gpio_set_dir(pin_rst, GPIO_OUT);
 }
 
-void display::init_drawing()
+void display::initDrawing()
 {
-    send_command(CASET);
-    send_short(0);
-    send_short(screen_width - 1);
+    sendCommand(CASET);
+    sendShort(0);
+    sendShort(screen_width - 1);
 
-    send_command(PASET);
-    send_short(0);
-    send_short(screen_height - 1);
+    sendCommand(PASET);
+    sendShort(0);
+    sendShort(screen_height - 1);
 
     sleep_ms(10);
 }
 
-void display::write_buffer()
+void display::writeBuffer()
 {
 #ifdef USE_INTERLACE
     send_command(CASET);
@@ -180,16 +180,16 @@ void display::write_buffer()
     }
     interlacePosition ^= 1;
 #else
-    send_command(RAMWR, buffer_size, buffer);
+    sendCommand(RAMWR, buffer_size, buffer);
 #endif
 }
 
-void display::clear_buffer()
+void display::clearBuffer()
 {
     memset(buffer, 0, buffer_size);
 }
 
-void display::draw_rectangle(uint16_t x, uint16_t y, uint16_t w,
+void display::drawRectangleToBuffer(uint16_t x, uint16_t y, uint16_t w,
                            uint16_t h, uint16_t color)
 {
     for (int i = y * screen_width * 2;
@@ -202,4 +202,18 @@ void display::draw_rectangle(uint16_t x, uint16_t y, uint16_t w,
             buffer[i + j + 1] = color & 0xff;
         }
     }
+}
+
+void display::clearScreen(uint16_t color = 0) {
+    uint8_t shortBuffer[] = {(uint8_t)(color >> 8), (uint8_t)color};
+
+    cs(true);
+    dc(true);
+    spi_write_blocking(spi, &RAMWR, 1);
+    dc(false);
+    for (int i=0; i<buffer_size/2; i++) {
+        spi_write_blocking(spi, shortBuffer, 2);
+    }
+    cs(false);
+    
 }
