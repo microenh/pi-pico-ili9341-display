@@ -2,6 +2,7 @@
 #include "pico/stdlib.h"
 #include "commands.h"
 #include "defs.h"
+#include <string.h>
 
 display::display(
     spi_inst_t *p_spi,
@@ -185,10 +186,7 @@ void display::write_buffer()
 
 void display::clear_buffer()
 {
-    for (uint i = 0; i < buffer_size; i++)
-    {
-        buffer[i] = 0x00;
-    }
+    memset(buffer, 0, buffer_size);
 }
 
 void display::draw_rectangle(uint16_t x, uint16_t y, uint16_t w,
